@@ -444,11 +444,4 @@ WINDOW_HEIGHT = 600      # 窗口高度
 1. 在github上 Fork 项目
 2. git clone到本地
 3. 在本地创建特性分支 (`git checkout -b feature/AmazingFeature`)
-4. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-5. 推送到分支 (`git push origin feature/AmazingFeature`)
-6. 打开Pull Request
-
-## 📄 许可证
-
-MIT License
-
+4. 提交更改 (`git commit -m 'Add some Amaz

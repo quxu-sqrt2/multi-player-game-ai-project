@@ -104,55 +104,48 @@ class MultiGameGUI:
         button_width = 120
         button_height = 30
         start_x = 650
-        y = 50
-        gap = 10
-        group_gap = 30
+
         buttons = {
             # 游戏选择
             "gomoku_game": {
-                "rect": pygame.Rect(start_x, y, button_width, button_height),
+                "rect": pygame.Rect(start_x, 50, button_width, button_height),
                 "text": "Gomoku",
                 "color": COLORS["YELLOW"],
             },
             "snake_game": {
-                "rect": pygame.Rect(start_x, y + (button_height + gap), button_width, button_height),
+                "rect": pygame.Rect(start_x, 90, button_width, button_height),
                 "text": "Snake",
-                "color": COLORS["LIGHT_GRAY"],
-            },
-            "pingpong_game": {
-                "rect": pygame.Rect(start_x, y + 2 * (button_height + gap), button_width, button_height),
-                "text": "PingPong",
                 "color": COLORS["LIGHT_GRAY"],
             },
             # AI选择
             "random_ai": {
-                "rect": pygame.Rect(start_x, y + 2 * (button_height + gap) + group_gap, button_width, button_height),
+                "rect": pygame.Rect(start_x, 150, button_width, button_height),
                 "text": "Random AI",
                 "color": COLORS["YELLOW"],
             },
             "minimax_ai": {
-                "rect": pygame.Rect(start_x, y + 3 * (button_height + gap) + group_gap, button_width, button_height),
+                "rect": pygame.Rect(start_x, 190, button_width, button_height),
                 "text": "Minimax AI",
                 "color": COLORS["LIGHT_GRAY"],
             },
             "mcts_ai": {
-                "rect": pygame.Rect(start_x, y + 4 * (button_height + gap) + group_gap, button_width, button_height),
+                "rect": pygame.Rect(start_x, 230, button_width, button_height),
                 "text": "MCTS AI",
                 "color": COLORS["LIGHT_GRAY"],
             },
             # 控制按钮
             "new_game": {
-                "rect": pygame.Rect(start_x, y + 4 * (button_height + gap) + 2 * group_gap, button_width, button_height),
+                "rect": pygame.Rect(start_x, 290, button_width, button_height),
                 "text": "New Game",
                 "color": COLORS["GREEN"],
             },
             "pause": {
-                "rect": pygame.Rect(start_x, y + 5 * (button_height + gap) + 2 * group_gap, button_width, button_height),
+                "rect": pygame.Rect(start_x, 330, button_width, button_height),
                 "text": "Pause",
                 "color": COLORS["ORANGE"],
             },
             "quit": {
-                "rect": pygame.Rect(start_x, y + 6 * (button_height + gap) + 2 * group_gap, button_width, button_height),
+                "rect": pygame.Rect(start_x, 370, button_width, button_height),
                 "text": "Quit",
                 "color": COLORS["RED"],
             },
@@ -164,13 +157,9 @@ class MultiGameGUI:
         self.current_game = game_type
 
         # 更新游戏选择按钮颜色
-        for btn_name in ["gomoku_game", "snake_game", "pingpong_game"]:
+        for btn_name in ["gomoku_game", "snake_game"]:
             self.buttons[btn_name]["color"] = COLORS["LIGHT_GRAY"]
         self.buttons[f"{game_type}_game"]["color"] = COLORS["YELLOW"]
-        if game_type == "gomoku":
-            self.buttons["pingpong_game"]["color"] = COLORS["LIGHT_GRAY"] # 五子棋时隐藏PingPong按钮
-        elif game_type == "snake":
-            self.buttons["pingpong_game"]["color"] = COLORS["YELLOW"] # 贪吃蛇时显示PingPong按钮
 
         # 创建对应的环境和智能体
         if game_type == "gomoku":
@@ -181,9 +170,6 @@ class MultiGameGUI:
             self.env = SnakeEnv(board_size=20)
             self.cell_size = 25
             self.update_interval = 0.3  # 贪吃蛇需要频繁更新
-        elif game_type == "pingpong":
-            # PingPong GUI is a separate process, no environment/agent here
-            pass
 
         self.human_agent = HumanAgent(name="Human Player", player_id=1)
         self._create_ai_agent()
@@ -208,7 +194,8 @@ class MultiGameGUI:
 
     def reset_game(self):
         """重置游戏"""
-        self.env.reset()
+        if self.env is not None:
+            self.env.reset()
         self.game_over = False
         self.winner = None
         self.last_move = None
@@ -265,40 +252,26 @@ class MultiGameGUI:
                 if button_name == "new_game":
                     self.reset_game()
                 elif button_name == "quit":
-                    return None
+                    return False
                 elif button_name == "pause":
                     self.paused = not self.paused
                     self.buttons["pause"]["text"] = "Resume" if self.paused else "Pause"
-                elif button_name in ["gomoku_game", "snake_game", "pingpong_game"]:
+                elif button_name in ["gomoku_game", "snake_game"]:
                     game_type = button_name.split("_")[0]
                     self._switch_game(game_type)
-                elif button_name == "random_ai":
+                elif button_name.endswith("_ai"):
                     # 更新选中的AI
                     old_ai = f"{self.selected_ai.lower()}_ai"
                     if old_ai in self.buttons:
                         self.buttons[old_ai]["color"] = COLORS["LIGHT_GRAY"]
 
-                    self.selected_ai = "RandomBot"
-                    self.buttons[button_name]["color"] = COLORS["YELLOW"]
-                    self._create_ai_agent()
-                    self.reset_game()
-                elif button_name == "minimax_ai":
-                    # 更新选中的AI
-                    old_ai = f"{self.selected_ai.lower()}_ai"
-                    if old_ai in self.buttons:
-                        self.buttons[old_ai]["color"] = COLORS["LIGHT_GRAY"]
+                    if button_name == "random_ai":
+                        self.selected_ai = "RandomBot"
+                    elif button_name == "minimax_ai":
+                        self.selected_ai = "MinimaxBot"
+                    elif button_name == "mcts_ai":
+                        self.selected_ai = "MCTSBot"
 
-                    self.selected_ai = "MinimaxBot"
-                    self.buttons[button_name]["color"] = COLORS["YELLOW"]
-                    self._create_ai_agent()
-                    self.reset_game()
-                elif button_name == "mcts_ai":
-                    # 更新选中的AI
-                    old_ai = f"{self.selected_ai.lower()}_ai"
-                    if old_ai in self.buttons:
-                        self.buttons[old_ai]["color"] = COLORS["LIGHT_GRAY"]
-
-                    self.selected_ai = "MCTSBot"
                     self.buttons[button_name]["color"] = COLORS["YELLOW"]
                     self._create_ai_agent()
                     self.reset_game()
@@ -320,8 +293,9 @@ class MultiGameGUI:
 
         if 0 <= row < 15 and 0 <= col < 15:
             action = (row, col)
-            if action in self.env.get_valid_actions():
-                self._make_move(action)
+            if self.env is not None and hasattr(self.env, "get_valid_actions"):
+                if action in self.env.get_valid_actions():
+                    self._make_move(action)
 
     def _handle_snake_input(self, key):
         """处理贪吃蛇键盘输入"""
@@ -347,16 +321,18 @@ class MultiGameGUI:
 
         try:
             # 执行动作
-            observation, reward, terminated, truncated, info = self.env.step(action)
-            self.last_move = action
+            if self.env is not None and hasattr(self.env, "step"):
+                observation, reward, terminated, truncated, info = self.env.step(action)
+                self.last_move = action
 
-            # 检查游戏是否结束
-            if terminated or truncated:
-                self.game_over = True
-                self.winner = self.env.get_winner()
-            else:
-                # 切换玩家
-                self._switch_player()
+                # 检查游戏是否结束
+                if terminated or truncated:
+                    if hasattr(self.env, "get_winner"):
+                        self.game_over = True
+                        self.winner = self.env.get_winner()
+                else:
+                    # 切换玩家
+                    self._switch_player()
 
         except Exception as e:
             print(f"Move execution failed: {e}")
@@ -383,17 +359,21 @@ class MultiGameGUI:
         self.last_update = current_time
 
         # AI回合
+        if self.env is None:
+            return
         if not isinstance(self.current_agent, HumanAgent) and self.thinking:
             try:
                 # 获取AI动作
-                observation = self.env._get_observation()
-                action = self.current_agent.get_action(observation, self.env)
+                if hasattr(self.env, "_get_observation") and hasattr(self.current_agent, "get_action"):
+                    observation = self.env._get_observation()
+                    if hasattr(self.current_agent, "get_action"):
+                        action = self.current_agent.get_action(observation, self.env)
 
-                if action:
-                    self._make_move(action)
-                # 无论AI是否有动作，都切回玩家
-                self.current_agent = self.human_agent
-                self.thinking = False
+                        if action:
+                            self._make_move(action)
+                        # 无论AI是否有动作，都切回玩家
+                        self.current_agent = self.human_agent
+                        self.thinking = False
 
             except Exception as e:
                 print(f"AI thinking failed: {e}")
@@ -406,16 +386,17 @@ class MultiGameGUI:
             and isinstance(self.current_agent, HumanAgent)
             and not self.thinking
         ):
-            # 贪吃蛇需要持续移动，如果没有输入就保持上一个方向
-            current_direction = None
-            if self.env.game.current_player == 1:
-                current_direction = self.env.game.direction1
-            else:
-                current_direction = self.env.game.direction2
-
-            # 直接使用当前方向作为动作
-            action = current_direction
-            self._make_move(action)
+            if self.env is not None and hasattr(self.env, "game"):
+                if self.env.game is not None:
+                    if hasattr(self.env.game, "current_player"):
+                        current_direction = None
+                        if self.env.game.current_player == 1 and hasattr(self.env.game, "direction1"):
+                            current_direction = self.env.game.direction1
+                        elif self.env.game.current_player != 1 and hasattr(self.env.game, "direction2"):
+                            current_direction = self.env.game.direction2
+                        if current_direction is not None:
+                            action = current_direction
+                            self._make_move(action)
 
     def draw(self):
         """绘制游戏界面"""
@@ -427,9 +408,6 @@ class MultiGameGUI:
             self._draw_gomoku()
         elif self.current_game == "snake":
             self._draw_snake()
-        elif self.current_game == "pingpong":
-            # PingPong GUI is a separate process, no direct drawing here
-            pass
 
         # 绘制UI
         self._draw_ui()
@@ -481,24 +459,27 @@ class MultiGameGUI:
             pygame.draw.circle(self.screen, COLORS["BLACK"], center, 4)
 
         # 绘制棋子
-        board = self.env.game.board
-        for row in range(board_size):
-            for col in range(board_size):
-                if board[row, col] != 0:
-                    center = (
-                        self.margin + col * self.cell_size,
-                        self.margin + row * self.cell_size,
-                    )
+        board = None
+        if self.env is not None and hasattr(self.env, "game") and self.env.game is not None and hasattr(self.env.game, "board"):
+            board = self.env.game.board
+        if board is not None:
+            for row in range(board_size):
+                for col in range(board_size):
+                    if board[row, col] != 0:
+                        center = (
+                            self.margin + col * self.cell_size,
+                            self.margin + row * self.cell_size,
+                        )
 
-                    if board[row, col] == 1:  # 人类玩家
-                        color = COLORS["BLACK"]
-                        border_color = COLORS["WHITE"]
-                    else:  # AI玩家
-                        color = COLORS["WHITE"]
-                        border_color = COLORS["BLACK"]
+                        if board[row, col] == 1:  # 人类玩家
+                            color = COLORS["BLACK"]
+                            border_color = COLORS["WHITE"]
+                        else:  # AI玩家
+                            color = COLORS["WHITE"]
+                            border_color = COLORS["BLACK"]
 
-                    pygame.draw.circle(self.screen, color, center, 12)
-                    pygame.draw.circle(self.screen, border_color, center, 12, 2)
+                        pygame.draw.circle(self.screen, color, center, 12)
+                        pygame.draw.circle(self.screen, border_color, center, 12, 2)
 
         # 绘制最后一步标记
         if (
@@ -549,42 +530,50 @@ class MultiGameGUI:
             )
 
         # 绘制游戏元素
-        state = self.env.game.get_state()
-        board = state['board']
-        for row in range(board_size):
-            for col in range(board_size):
-                if board[row, col] != 0:
-                    x = self.margin + col * self.cell_size + 2
-                    y = self.margin + row * self.cell_size + 2
-                    rect = pygame.Rect(x, y, self.cell_size - 4, self.cell_size - 4)
+        state = None
+        board = None
+        if self.env is not None and hasattr(self.env, "game") and self.env.game is not None and hasattr(self.env.game, "get_state"):
+            state = self.env.game.get_state()
+        if state is not None and "board" in state:
+            board = state['board']
+        if board is not None:
+            for row in range(board_size):
+                for col in range(board_size):
+                    if board[row, col] != 0:
+                        x = self.margin + col * self.cell_size + 2
+                        y = self.margin + row * self.cell_size + 2
+                        rect = pygame.Rect(x, y, self.cell_size - 4, self.cell_size - 4)
 
-                    if board[row, col] == 1:  # 蛇1头部
-                        pygame.draw.rect(self.screen, COLORS["BLUE"], rect)
-                    elif board[row, col] == 2:  # 蛇1身体
-                        pygame.draw.rect(self.screen, COLORS["CYAN"], rect)
-                    elif board[row, col] == 3:  # 蛇2头部
-                        pygame.draw.rect(self.screen, COLORS["RED"], rect)
-                    elif board[row, col] == 4:  # 蛇2身体
-                        pygame.draw.rect(self.screen, COLORS["ORANGE"], rect)
-                    elif board[row, col] == 5:  # 食物
-                        pygame.draw.rect(self.screen, COLORS["GREEN"], rect)
+                        if board[row, col] == 1:  # 蛇1头部
+                            pygame.draw.rect(self.screen, COLORS["BLUE"], rect)
+                        elif board[row, col] == 2:  # 蛇1身体
+                            pygame.draw.rect(self.screen, COLORS["CYAN"], rect)
+                        elif board[row, col] == 3:  # 蛇2头部
+                            pygame.draw.rect(self.screen, COLORS["RED"], rect)
+                        elif board[row, col] == 4:  # 蛇2身体
+                            pygame.draw.rect(self.screen, COLORS["ORANGE"], rect)
+                        elif board[row, col] == 5:  # 食物
+                            pygame.draw.rect(self.screen, COLORS["GREEN"], rect)
 
     def _draw_ui(self):
         """绘制UI界面"""
-        # 绘制分组标题
-        font_bold = pygame.font.Font(self.font_path, 22) if self.font_path else pygame.font.SysFont(None, 22, bold=True)
-        self.screen.blit(font_bold.render("Game Selection:", True, COLORS["BLACK"]), (self.buttons["gomoku_game"]["rect"].x, 25))
-        self.screen.blit(font_bold.render("AI Selection:", True, COLORS["BLACK"]), (self.buttons["random_ai"]["rect"].x, self.buttons["random_ai"]["rect"].y - 25))
-        self.screen.blit(font_bold.render("Control:", True, COLORS["BLACK"]), (self.buttons["new_game"]["rect"].x, self.buttons["new_game"]["rect"].y - 25))
         # 绘制按钮
         for button_name, button_info in self.buttons.items():
             pygame.draw.rect(self.screen, button_info["color"], button_info["rect"])
             pygame.draw.rect(self.screen, COLORS["BLACK"], button_info["rect"], 2)
+
             text_surface = self.font_medium.render(
                 button_info["text"], True, COLORS["BLACK"]
             )
             text_rect = text_surface.get_rect(center=button_info["rect"].center)
             self.screen.blit(text_surface, text_rect)
+
+        # 绘制标题
+        title_text = self.font_medium.render("Game Selection:", True, COLORS["BLACK"])
+        self.screen.blit(title_text, (self.buttons["gomoku_game"]["rect"].x, 25))
+
+        ai_title_text = self.font_medium.render("AI Selection:", True, COLORS["BLACK"])
+        self.screen.blit(ai_title_text, (self.buttons["random_ai"]["rect"].x, 165))
 
         # 绘制操作说明
         # 主游戏操作说明
@@ -650,11 +639,14 @@ class MultiGameGUI:
                     status_text = "Your Turn - Use Arrow Keys"
                 color = COLORS["BLUE"]
             else:
-                if self.thinking:
+                if self.thinking and self.ai_agent is not None and hasattr(self.ai_agent, "name"):
                     status_text = f"{self.ai_agent.name} is Thinking..."
                     color = COLORS["ORANGE"]
-                else:
+                elif self.ai_agent is not None and hasattr(self.ai_agent, "name"):
                     status_text = f"{self.ai_agent.name}'s Turn"
+                    color = COLORS["RED"]
+                else:
+                    status_text = "AI's Turn"
                     color = COLORS["RED"]
 
         text_surface = self.font_large.render(status_text, True, color)
@@ -663,17 +655,17 @@ class MultiGameGUI:
         # 游戏信息
         info_y = status_y + 40
         if self.current_game == "gomoku":
-            player_info = f"Black: Human Player  White: {self.ai_agent.name if self.ai_agent else 'AI'}"
+            player_info = f"Black: Human Player  White: {self.ai_agent.name if self.ai_agent and hasattr(self.ai_agent, 'name') else 'AI'}"
         else:
-            if hasattr(self.env.game, "snake1") and hasattr(self.env.game, "snake2"):
-                len1 = len(self.env.game.snake1) if self.env.game.alive1 else 0
-                len2 = len(self.env.game.snake2) if self.env.game.alive2 else 0
-                alive1 = "Alive" if self.env.game.alive1 else "Dead"
-                alive2 = "Alive" if self.env.game.alive2 else "Dead"
-                player_info = f"Blue Snake(You): {len1} segments({alive1})  Red Snake(AI): {len2} segments({alive2})"
-            else:
-                player_info = "Snake Battle in Progress..."
-
+            len1 = len2 = 0
+            alive1 = alive2 = "?"
+            if self.env is not None and hasattr(self.env, "game") and self.env.game is not None:
+                if hasattr(self.env.game, "snake1") and hasattr(self.env.game, "snake2"):
+                    len1 = len(self.env.game.snake1) if hasattr(self.env.game, "snake1") and hasattr(self.env.game, "alive1") and getattr(self.env.game, "alive1", False) else 0
+                    len2 = len(self.env.game.snake2) if hasattr(self.env.game, "snake2") and hasattr(self.env.game, "alive2") and getattr(self.env.game, "alive2", False) else 0
+                    alive1 = "Alive" if hasattr(self.env.game, "alive1") and getattr(self.env.game, "alive1", False) else "Dead"
+                    alive2 = "Alive" if hasattr(self.env.game, "alive2") and getattr(self.env.game, "alive2", False) else "Dead"
+            player_info = f"Blue Snake(You): {len1} segments({alive1})  Red Snake(AI): {len2} segments({alive2})"
         info_surface = self.font_small.render(player_info, True, COLORS["DARK_GRAY"])
         self.screen.blit(info_surface, (status_x, info_y))
 

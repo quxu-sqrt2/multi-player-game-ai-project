@@ -1,5 +1,5 @@
 """
-贪吃蛇独立窗口
+五子棋独立窗口
 """
 
 import pygame
@@ -7,25 +7,25 @@ import sys
 import time
 import os
 from typing import Optional, Tuple, Dict, Any
-from games.snake import SnakeGame, SnakeEnv
-from agents import RandomBot, SnakeAI, SmartSnakeAI, HumanAgent
+from games.gomoku import GomokuGame, GomokuEnv
+from agents import RandomBot, MinimaxBot, MCTSBot, HumanAgent
 import config
 
 COLORS = {
     "WHITE": (255, 255, 255),
     "BLACK": (0, 0, 0),
-    "LIGHT_GRAY": (211, 211, 211),
-    "GRAY": (128, 128, 128),
-    "DARK_GRAY": (64, 64, 64),
-    "GREEN": (0, 255, 0),
-    "BLUE": (0, 0, 255),
-    "CYAN": (0, 255, 255),
+    "BROWN": (139, 69, 19),
+    "LIGHT_BROWN": (205, 133, 63),
     "RED": (255, 0, 0),
-    "ORANGE": (255, 165, 0),
     "YELLOW": (255, 255, 0),
+    "GREEN": (0, 255, 0),
+    "LIGHT_GRAY": (211, 211, 211),
+    "DARK_GRAY": (64, 64, 64),
+    "BLUE": (0, 0, 255),
+    "ORANGE": (255, 165, 0),
 }
 
-class SnakeGUI:
+class GomokuGUI:
     def __init__(self):
         pygame.init()
         self.font_path = self._get_chinese_font()
@@ -35,9 +35,9 @@ class SnakeGUI:
         self.window_width = 900
         self.window_height = 700
         self.screen = pygame.display.set_mode((self.window_width, self.window_height))
-        pygame.display.set_caption("Snake - 独立窗口")
+        pygame.display.set_caption("Gomoku - 独立窗口")
         self.clock = pygame.time.Clock()
-        self.env = SnakeEnv(board_size=20)
+        self.env = GomokuEnv(board_size=15, win_length=5)
         self.human_agent = HumanAgent(name="Human Player", player_id=1)
         self.selected_ai = "RandomBot"
         self.ai_agent = RandomBot(name="Random AI", player_id=2)
@@ -47,10 +47,10 @@ class SnakeGUI:
         self.last_move = None
         self.thinking = False
         self.paused = False
-        self.cell_size = 25
+        self.cell_size = 30
         self.margin = 50
         self.last_update = time.time()
-        self.update_interval = 0.3
+        self.update_interval = 1.0
         self.buttons = self._create_buttons()
         self.reset_game()
 
@@ -80,14 +80,14 @@ class SnakeGUI:
                 "text": "Random AI",
                 "color": COLORS["YELLOW"],
             },
-            "snake_ai": {
+            "minimax_ai": {
                 "rect": pygame.Rect(start_x, 190, button_width, button_height),
-                "text": "Snake AI",
+                "text": "Minimax AI",
                 "color": COLORS["LIGHT_GRAY"],
             },
-            "smart_snake_ai": {
+            "mcts_ai": {
                 "rect": pygame.Rect(start_x, 230, button_width, button_height),
-                "text": "Smart Snake AI",
+                "text": "MCTS AI",
                 "color": COLORS["LIGHT_GRAY"],
             },
             "new_game": {
@@ -137,31 +137,29 @@ class SnakeGUI:
                     if button_name == "random_ai":
                         self.selected_ai = "RandomBot"
                         self.ai_agent = RandomBot(name="Random AI", player_id=2)
-                    elif button_name == "snake_ai":
-                        self.selected_ai = "SnakeAI"
-                        self.ai_agent = SnakeAI(name="Snake AI", player_id=2)
-                    elif button_name == "smart_snake_ai":
-                        self.selected_ai = "SmartSnakeAI"
-                        self.ai_agent = SmartSnakeAI(name="Smart Snake AI", player_id=2)
+                    elif button_name == "minimax_ai":
+                        self.selected_ai = "MinimaxBot"
+                        self.ai_agent = MinimaxBot(name="Minimax AI", player_id=2, max_depth=3)
+                    elif button_name == "mcts_ai":
+                        self.selected_ai = "MCTSBot"
+                        self.ai_agent = MCTSBot(name="MCTS AI", player_id=2, simulation_count=300)
                     self.buttons[button_name]["color"] = COLORS["YELLOW"]
                     self.reset_game()
-                    return True
+                return True
         return False
 
-    def _handle_snake_input(self, key):
-        key_to_action = {
-            pygame.K_UP: (-1, 0),
-            pygame.K_w: (-1, 0),
-            pygame.K_DOWN: (1, 0),
-            pygame.K_s: (1, 0),
-            pygame.K_LEFT: (0, -1),
-            pygame.K_a: (0, -1),
-            pygame.K_RIGHT: (0, 1),
-            pygame.K_d: (0, 1),
-        }
-        if key in key_to_action:
-            action = key_to_action[key]
-            self._make_move(action)
+    def _handle_gomoku_click(self, mouse_pos):
+        x, y = mouse_pos
+        board_x = x - self.margin
+        board_y = y - self.margin
+        if board_x < 0 or board_y < 0:
+            return
+        col = round(board_x / self.cell_size)
+        row = round(board_y / self.cell_size)
+        if 0 <= row < 15 and 0 <= col < 15:
+            action = (row, col)
+            if action in self.env.get_valid_actions():
+                self._make_move(action)
 
     def _make_move(self, action):
         if self.game_over or self.paused:
@@ -203,14 +201,6 @@ class SnakeGUI:
                 print(f"AI thinking failed: {e}")
                 self.current_agent = self.human_agent
                 self.thinking = False
-        elif (
-            not self.thinking
-            and isinstance(self.current_agent, HumanAgent)
-            and self.current_agent == self.human_agent
-        ):
-            # 自动移动（保持上一个方向）
-            direction = self.env.game.direction1
-            self._make_move(direction)
 
     def handle_events(self):
         for event in pygame.event.get():
@@ -218,72 +208,79 @@ class SnakeGUI:
                 pygame.quit()
                 sys.exit()
             elif event.type == pygame.KEYDOWN:
-                if (
-                    not self.game_over
-                    and isinstance(self.current_agent, HumanAgent)
-                    and not self.thinking
-                    and not self.paused
-                ):
-                    self._handle_snake_input(event.key)
+                pass  # 五子棋不需要键盘输入
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:
                     mouse_pos = pygame.mouse.get_pos()
                     click_result = self._handle_button_click(mouse_pos)
                     if click_result:
                         return
+                    if not self.game_over and isinstance(self.current_agent, HumanAgent) and not self.thinking and not self.paused:
+                        self._handle_gomoku_click(mouse_pos)
 
     def draw(self):
         self.screen.fill(COLORS["WHITE"])
-        self._draw_snake()
+        self._draw_gomoku()
         self._draw_ui()
         self._draw_game_status()
         pygame.display.flip()
 
-    def _draw_snake(self):
-        board_size = 20
-        state = self.env.game.get_state()
-        board = state['board']
-        game_rect = pygame.Rect(
-            self.margin,
-            self.margin,
-            board_size * self.cell_size,
-            board_size * self.cell_size,
+    def _draw_gomoku(self):
+        board_size = 15
+        board = self.env.game.board
+        board_rect = pygame.Rect(
+            self.margin - 20,
+            self.margin - 20,
+            board_size * self.cell_size + 40,
+            board_size * self.cell_size + 40,
         )
-        pygame.draw.rect(self.screen, COLORS["LIGHT_GRAY"], game_rect)
-        pygame.draw.rect(self.screen, COLORS["BLACK"], game_rect, 2)
-        for i in range(board_size + 1):
-            x = self.margin + i * self.cell_size
-            pygame.draw.line(
-                self.screen,
-                COLORS["GRAY"],
-                (x, self.margin),
-                (x, self.margin + board_size * self.cell_size),
-                1,
+        pygame.draw.rect(self.screen, COLORS["LIGHT_BROWN"], board_rect)
+        for i in range(board_size):
+            start_pos = (self.margin + i * self.cell_size, self.margin)
+            end_pos = (
+                self.margin + i * self.cell_size,
+                self.margin + (board_size - 1) * self.cell_size,
             )
-            y = self.margin + i * self.cell_size
-            pygame.draw.line(
-                self.screen,
-                COLORS["GRAY"],
-                (self.margin, y),
-                (self.margin + board_size * self.cell_size, y),
-                1,
+            pygame.draw.line(self.screen, COLORS["BLACK"], start_pos, end_pos, 2)
+            start_pos = (self.margin, self.margin + i * self.cell_size)
+            end_pos = (
+                self.margin + (board_size - 1) * self.cell_size,
+                self.margin + i * self.cell_size,
             )
+            pygame.draw.line(self.screen, COLORS["BLACK"], start_pos, end_pos, 2)
+        star_positions = [(3, 3), (3, 11), (11, 3), (11, 11), (7, 7)]
+        for row, col in star_positions:
+            center = (
+                self.margin + col * self.cell_size,
+                self.margin + row * self.cell_size,
+            )
+            pygame.draw.circle(self.screen, COLORS["BLACK"], center, 4)
         for row in range(board_size):
             for col in range(board_size):
                 if board[row, col] != 0:
-                    x = self.margin + col * self.cell_size + 2
-                    y = self.margin + row * self.cell_size + 2
-                    rect = pygame.Rect(x, y, self.cell_size - 4, self.cell_size - 4)
+                    center = (
+                        self.margin + col * self.cell_size,
+                        self.margin + row * self.cell_size,
+                    )
                     if board[row, col] == 1:
-                        pygame.draw.rect(self.screen, COLORS["BLUE"], rect)
-                    elif board[row, col] == 2:
-                        pygame.draw.rect(self.screen, COLORS["CYAN"], rect)
-                    elif board[row, col] == 3:
-                        pygame.draw.rect(self.screen, COLORS["RED"], rect)
-                    elif board[row, col] == 4:
-                        pygame.draw.rect(self.screen, COLORS["ORANGE"], rect)
-                    elif board[row, col] == 5:
-                        pygame.draw.rect(self.screen, COLORS["GREEN"], rect)
+                        color = COLORS["BLACK"]
+                        border_color = COLORS["WHITE"]
+                    else:
+                        color = COLORS["WHITE"]
+                        border_color = COLORS["BLACK"]
+                    pygame.draw.circle(self.screen, color, center, 12)
+                    pygame.draw.circle(self.screen, border_color, center, 12, 2)
+        if (
+            self.last_move
+            and isinstance(self.last_move, tuple)
+            and len(self.last_move) == 2
+        ):
+            row, col = self.last_move
+            center = (
+                self.margin + col * self.cell_size,
+                self.margin + row * self.cell_size,
+            )
+            pygame.draw.circle(self.screen, COLORS["RED"], center, 6, 3)
 
     def _draw_ui(self):
         for button_name, button_info in self.buttons.items():
@@ -297,10 +294,9 @@ class SnakeGUI:
         title_text = self.font_medium.render("AI Selection:", True, COLORS["BLACK"])
         self.screen.blit(title_text, (self.buttons["random_ai"]["rect"].x, 125))
         instructions = [
-            "Snake Controls:",
-            "• Arrow keys/WASD to move",
-            "• Eat food to grow",
-            "• Avoid collision",
+            "Gomoku Controls:",
+            "• Click to place stone",
+            "• Connect 5 to win",
         ]
         start_y = 420
         for i, instruction in enumerate(instructions):
@@ -327,7 +323,7 @@ class SnakeGUI:
                 color = COLORS["ORANGE"]
         else:
             if isinstance(self.current_agent, HumanAgent):
-                status_text = "Your Turn - Use Arrow Keys"
+                status_text = "Your Turn - Click to Place Stone"
                 color = COLORS["BLUE"]
             else:
                 if self.thinking:
@@ -339,12 +335,7 @@ class SnakeGUI:
         text_surface = self.font_large.render(status_text, True, color)
         self.screen.blit(text_surface, (status_x, status_y))
         info_y = status_y + 40
-        state = self.env.game.get_state()
-        len1 = len(state['snake1']) if state['alive1'] else 0
-        len2 = len(state['snake2']) if state['alive2'] else 0
-        alive1 = "Alive" if state['alive1'] else "Dead"
-        alive2 = "Alive" if state['alive2'] else "Dead"
-        player_info = f"Blue Snake(You): {len1} segments({alive1})  Red Snake(AI): {len2} segments({alive2})"
+        player_info = f"Black: Human Player  White: {self.ai_agent.name if self.ai_agent else 'AI'}"
         info_surface = self.font_small.render(player_info, True, COLORS["DARK_GRAY"])
         self.screen.blit(info_surface, (status_x, info_y))
 
@@ -359,9 +350,9 @@ class SnakeGUI:
         sys.exit()
 
 def main():
-    print("Starting Snake Standalone GUI...")
+    print("Starting Gomoku Standalone GUI...")
     try:
-        game = SnakeGUI()
+        game = GomokuGUI()
         game.run()
     except Exception as e:
         print(f"Game error: {e}")

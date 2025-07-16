@@ -28,37 +28,26 @@ class GomokuGame(BaseGame):
         return self.get_state()
     
     def step(self, action: Tuple[int, int]) -> Tuple[Dict[str, Any], float, bool, Dict[str, Any]]:
-        """
-        执行一步动作
-        
-        Args:
-            action: (row, col) 坐标
-            
-        Returns:
-            observation: 观察状态
-            reward: 奖励
-            done: 是否结束
-            info: 额外信息
-        """
+        print(f"step called with action={action}, current_player={self.current_player}, move_count={self.move_count}")
         row, col = action
-        
+        print(f"before move, board[{row},{col}]={self.board[row, col]}")
         if self.board[row, col] != 0:
+            print("Invalid move!")
             return self.get_state(), -1, True, {'error': 'Invalid move'}
-        
         self.board[row, col] = self.current_player
         self.history.append((self.current_player, (row, col)))
         self.move_count += 1
-        
-        # 设置last_move，让MinimaxBot的优化生效
         self.last_move = (row, col)
-        
+        print(f"after move, board[{row},{col}]={self.board[row, col]}, move_count={self.move_count}")
         done = self.is_terminal()
-        reward = 1 if self.get_winner() == self.current_player else 0
+        print(f"is_terminal={done}")
+        winner = self.get_winner()
+        print(f"get_winner={winner}")
+        reward = 1 if winner == self.current_player else 0
         info = {}
-        if done and self.get_winner() is None:
+        if done and winner is None:
             reward = 0.5
         self.switch_player()
-        
         return self.get_state(), reward, done, info
     
     def get_valid_actions(self, player: int = None) -> List[Tuple[int, int]]:
@@ -66,11 +55,12 @@ class GomokuGame(BaseGame):
         return [(i, j) for i in range(self.board_size) for j in range(self.board_size) if self.board[i, j] == 0]
     
     def is_terminal(self) -> bool:
-        """检查游戏是否结束"""
-        return self.get_winner() is not None or self.move_count >= self.board_size * self.board_size
+        result = self.get_winner() is not None or self.move_count >= self.board_size * self.board_size
+        print(f"is_terminal called: move_count={self.move_count}, result={result}")
+        return result
     
     def get_winner(self) -> Optional[int]:
-        """获取获胜者"""
+        print("get_winner called")
         for i in range(self.board_size):
             for j in range(self.board_size):
                 if self.board[i, j] == 0:
@@ -85,6 +75,7 @@ class GomokuGame(BaseGame):
                         else:
                             break
                     if count >= self.win_length:
+                        print(f"winner found: player={player} at ({i},{j}) direction=({dx},{dy})")
                         return player
         return None
     

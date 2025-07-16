@@ -403,11 +403,11 @@ class MCTSBot:
                 (2, 2): 100,      # 活二
                 (2, 1): 50        # 眠二
             }
-            # 三连/四连进攻/防守分数
+            # 攻防分数提升
             three_attack = 2000
-            three_defense = 1800
+            three_defense = 5000  # 提升防守分数
             four_attack = 9000
-            four_defense = 20000  # 极大化防守分数，优先阻断对手四连
+            four_defense = 30000  # 极大化防守分数，优先阻断对方四连
             # 位置权重：中心高，边缘低
             pos_weight = np.zeros((board.size, board.size))
             center = board.size // 2

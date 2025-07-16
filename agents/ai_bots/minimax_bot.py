@@ -285,30 +285,105 @@ class MinimaxBot(BaseAgent):
             return 0
     
     def evaluate_gomoku_position(self, game):
-        # 只评估最近一步
-        if hasattr(game, 'last_move') and game.last_move is not None:
-            row, col = game.last_move
-            board = game.board
-            player = board[row][col]
-            opponent = 3 - player
-            # 检查己方冲5
-            if self._has_n_in_row(board, self.player_id, 5):
-                return 1000
-            # 检查对方冲5（防守）
-            if self._has_n_in_row(board, opponent, 5):
-                return -1000
-            # 检查己方冲四（四连一空）
-            if self._has_open_four(board, self.player_id):
-                return 900
-            # 检查对方冲四（四连一空）
-            if self._has_open_four(board, opponent):
-                return -900
-            # 继续用原有快速评估
-            if player == self.player_id:
-                return self.quick_evaluate(board, row, col)
-            else:
-                return -self.quick_evaluate(board, row, col)
-        return 0
+        """
+        全盘遍历，统计并加权各类棋型（活二、活三、冲四、活四、活五），
+        并对对手威胁（如对方冲四、活三）赋予极高权重，优先防守。
+        """
+        import numpy as np
+        board = game.board
+        size = board.shape[0]
+        my_id = self.player_id
+        opp_id = 3 - my_id
+        patterns = {
+            'live_two': 100,
+            'live_three': 500,
+            'sleep_three': 100,
+            'rush_four': 2000,
+            'live_four': 8000,
+            'live_five': 100000,
+        }
+        opp_patterns = {
+            'live_two': 100,
+            'live_three': 800,
+            'sleep_three': 200,
+            'rush_four': 10000,  # 极高权重
+            'live_four': 50000,  # 极高权重
+            'live_five': 1000000,
+        }
+        def scan_line(line, player):
+            s = ''.join(str(x) for x in line)
+            # 0空 1自己 2对手
+            # 活五
+            live_five = f'{player}'*5
+            # 活四: 011110
+            live_four = f'0{player}{player}{player}{player}0'
+            # 冲四: 011112, 211110, 101110, 110110, 111010
+            rush_four = [
+                f'0{player}{player}{player}{player}{3-player}',
+                f'{3-player}{player}{player}{player}{player}0',
+                f'{player}0{player}{player}{player}{player}',
+                f'{player}{player}0{player}{player}{player}',
+                f'{player}{player}{player}0{player}{player}',
+                f'{player}{player}{player}{player}0{player}',
+            ]
+            # 活三: 01110
+            live_three = f'0{player}{player}{player}0'
+            # 眠三: 001110, 011100, 010110, 011010
+            sleep_three = [
+                f'00{player}{player}{player}0',
+                f'0{player}{player}{player}00',
+                f'0{player}0{player}{player}0',
+                f'0{player}{player}0{player}0',
+            ]
+            # 活二: 00110, 01100, 01010
+            live_two = [
+                f'00{player}{player}0',
+                f'0{player}{player}00',
+                f'0{player}0{player}0',
+            ]
+            counts = {
+                'live_five': s.count(live_five),
+                'live_four': s.count(live_four),
+                'rush_four': sum(s.count(p) for p in rush_four),
+                'live_three': s.count(live_three),
+                'sleep_three': sum(s.count(p) for p in sleep_three),
+                'live_two': sum(s.count(p) for p in live_two),
+            }
+            return counts
+        def get_all_lines(board):
+            lines = []
+            # 横
+            for i in range(size):
+                lines.append(board[i, :])
+            # 竖
+            for j in range(size):
+                lines.append(board[:, j])
+            # 主对角线
+            for k in range(-size+5, size-4):
+                lines.append(np.diag(board, k))
+            # 副对角线
+            for k in range(-size+5, size-4):
+                lines.append(np.diag(np.fliplr(board), k))
+            return lines
+        my_score = 0
+        opp_score = 0
+        for line in get_all_lines(board):
+            line = np.pad(line, (1,1), 'constant', constant_values=0)  # 补0便于识别活棋
+            my_counts = scan_line(line, my_id)
+            opp_counts = scan_line(line, opp_id)
+            for k in patterns:
+                my_score += my_counts[k] * patterns[k]
+                opp_score += opp_counts[k] * opp_patterns[k]
+        # 极端情况优先级
+        if opp_score >= opp_patterns['live_five']:
+            return -1000000  # 对手活五，必防
+        if my_score >= patterns['live_five']:
+            return 1000000  # 自己活五，必赢
+        if opp_counts['live_four'] > 0 or opp_counts['rush_four'] > 0:
+            return -500000  # 对手活四/冲四，极高权重防守
+        if my_counts['live_four'] > 0 or my_counts['rush_four'] > 0:
+            return 500000  # 自己活四/冲四，极高权重进攻
+        return my_score - opp_score
 
     def _has_n_in_row(self, board, player, n):
         size = board.shape[0]
